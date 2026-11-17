@@ -1,0 +1,18 @@
+@import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap');
+:root{color-scheme:dark;--bg:#070b16;--panel:#111c32;--blue:#00b7ff;--text:#edf6ff;--muted:#a4b6d2;--border:#2a3b57}
+*{box-sizing:border-box}
+body{min-height:100vh;margin:0;display:grid;place-items:center;padding:24px 14px;background:radial-gradient(ellipse at 50% 0%,#183c68 0%,#0c1730 34%,var(--bg) 75%);color:var(--text);font-family:Inter,Arial,sans-serif;text-align:center}
+main{width:min(100%,470px);padding:30px 24px;background:linear-gradient(160deg,#182a47,#0d1528 80%);border:1px solid var(--border);border-radius:26px;box-shadow:0 20px 60px #0009,0 0 45px #007bff16}
+h1{margin:0 0 10px;font:700 clamp(30px,7vw,42px)/1.1 Rajdhani,Arial,sans-serif;letter-spacing:2px;color:var(--blue);text-shadow:0 0 24px #00b7ff55}
+#status{min-height:24px;color:#75e4b5;font-size:14px;margin:12px 0 23px}
+input:not([type=range]){display:block;width:100%;padding:15px;margin:12px 0;background:#0a1427;border:1px solid #395072;border-radius:13px;color:white;font:inherit;outline:none}
+input:focus-visible{border-color:var(--blue);box-shadow:0 0 0 3px #00b7ff25}
+button{background:linear-gradient(145deg,#147ff0,#0757b4);border:1px solid #349cff;border-radius:14px;color:#fff;font:700 16px Inter,Arial,sans-serif;padding:14px 18px;margin:6px;cursor:pointer;box-shadow:0 5px 16px #006bdb30;transition:transform .12s,filter .12s}
+button:hover{filter:brightness(1.13)}button:active{transform:scale(.94);filter:brightness(1.25)}button:focus-visible{outline:3px solid #8edfff;outline-offset:3px}button:disabled{opacity:.45;cursor:not-allowed}
+#auth button{min-width:125px}#panel{display:none}.small{font-size:13px;color:var(--muted);line-height:1.6}
+.drive{width:clamp(74px,22vw,94px);height:clamp(70px,21vw,90px);padding:0;font-size:36px;border-radius:20px;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;box-shadow:0 5px 24px #008cff44}
+.stop{background:linear-gradient(145deg,#ff5964,#b91932);border-color:#ff6976;box-shadow:0 5px 24px #e11d4840}
+#panel>div{display:flex;justify-content:center;align-items:center;gap:0}#panel>p{margin:18px 0 10px}
+input[type=range]{display:block;width:100%;margin:20px 0;accent-color:var(--blue);cursor:pointer}
+#speedLabel{color:#56d9ff}#logout{background:#26364e;border-color:#49617d;font-size:13px;padding:11px 17px}
+@media(max-width:360px){main{padding:24px 12px}.drive{margin:3px}#auth button{min-width:110px}}
