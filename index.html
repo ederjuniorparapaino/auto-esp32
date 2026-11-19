@@ -1,25 +1,260 @@
-<!doctype html>
-<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>AUTO ESP32</title>
-<link rel="stylesheet" href="styles.css"></head><body><main><h1>🚗 AUTO ESP32</h1><p id="status">Inicia sesión para controlar el carrito</p>
-<section id="auth"><input id="email" type="email" placeholder="Correo electrónico" autocomplete="email"><input id="password" type="password" placeholder="Contraseña" autocomplete="current-password"><button id="login">Entrar</button><button id="signup">Crear cuenta</button><p class="small">Si te registras, puede ser necesario confirmar tu correo.</p></section>
-<section id="panel"><p class="small">Mantén presionado un botón para mover el carrito.</p>
-<div><button class="drive" data-dir="A">▲</button></div><div><button class="drive" data-dir="I">◀</button><button class="drive stop" id="stop">■</button><button class="drive" data-dir="D">▶</button></div><div><button class="drive" data-dir="R">▼</button></div>
-<p>Velocidad: <b id="speedLabel">180</b></p><input type="range" id="speed" min="80" max="255" value="180"><p><button id="logout">Cerrar sesión</button></p></section></main>
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport"
+        content="width=device-width,initial-scale=1">
+  <title>AUTO ESP32</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+<main>
+  <h1>🚗 AUTO ESP32</h1>
+  <p id="status">Conectando...</p>
+
+  <section id="auth">
+    <input id="email" type="email"
+           placeholder="Correo electrónico">
+
+    <input id="password" type="password"
+           placeholder="Contraseña">
+
+    <button id="login">Entrar</button>
+    <button id="signup">Crear cuenta</button>
+  </section>
+
+  <section id="panel" style="display:none">
+    <h3>CONTROL DEL VEHÍCULO</h3>
+    <p>Mantén presionado para moverte</p>
+
+    <div>
+      <button class="drive" data-dir="A">▲</button>
+    </div>
+
+    <div>
+      <button class="drive" data-dir="I">◀</button>
+      <button class="drive stop" id="stop">■</button>
+      <button class="drive" data-dir="D">▶</button>
+    </div>
+
+    <div>
+      <button class="drive" data-dir="R">▼</button>
+    </div>
+
+    <p>Velocidad: <b id="speedLabel">180</b></p>
+
+    <input type="range" id="speed"
+           min="80" max="255" value="180">
+
+    <p>
+      <button id="logout">Cerrar sesión</button>
+    </p>
+  </section>
+</main>
+
 <script type="module">
-import {createClient} from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
-const db=createClient('https://bfhsjfnyjtuelnlyishv.supabase.co','sb_publishable_5gUYlJzgG3Sk28dd0oXWqw_ff1RZjY9');
-const $=id=>document.getElementById(id);
-let user=null,timer=null,direction='S',busy=false;
-const message=t=>$('status').textContent=t;
-async function init(){const {data:{user:u}}=await db.auth.getUser();user=u;$('auth').style.display=u?'none':'block';$('panel').style.display=u?'block':'none';if(u){const {data,error}=await db.from('auto_esp32_control').select('owner_id').eq('id',1).maybeSingle();if(error){message(error.message);return;}if(!data){const r=await db.from('auto_esp32_control').insert({id:1,owner_id:u.id,direction:'S',speed:180});if(r.error){message(r.error.message);return;}}else if(data.owner_id!==u.id){message('Esta cuenta no es propietaria del carrito');$('panel').style.display='none';return;}message('Conectado. Listo para controlar.');}else message('Inicia sesión para controlar el carrito');}
-$('signup').onclick=async()=>{const {error}=await db.auth.signUp({email:$('email').value,password:$('password').value});message(error?error.message:'Registro enviado. Confirma tu correo si es necesario y entra.');};
-$('login').onclick=async()=>{const {error}=await db.auth.signInWithPassword({email:$('email').value,password:$('password').value});if(error)message(error.message);else await init();};
-async function send(d){if(!user||busy)return;busy=true;const {error}=await db.from('auto_esp32_control').update({direction:d,speed:Number($('speed').value)}).eq('id',1);busy=false;if(error)message('Error: '+error.message);}
-function stop(){direction='S';clearInterval(timer);timer=null;send('S');}
-function start(d){stop();direction=d;send(d);timer=setInterval(()=>send(direction),300);}
-document.querySelectorAll('[data-dir]').forEach(b=>{b.addEventListener('pointerdown',e=>{e.preventDefault();b.setPointerCapture(e.pointerId);start(b.dataset.dir)});b.addEventListener('pointerup',stop);b.addEventListener('pointercancel',stop);b.addEventListener('lostpointercapture',stop);});
-$('stop').onclick=stop;$('speed').oninput=()=>{$('speedLabel').textContent=$('speed').value;};
-$('logout').onclick=async()=>{stop();await db.auth.signOut();await init();};
-window.addEventListener('blur',stop);document.addEventListener('visibilitychange',()=>{if(document.hidden)stop();});
-await init();
-</script></body></html>
+import { createClient } from
+'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+
+const db = createClient(
+  'https://bfhsjfnyjtuelnlyishv.supabase.co',
+  'sb_publishable_5gUYlJzgG3Sk28dd0oXWqw_ff1RZjY9'
+);
+
+const $ = id => document.getElementById(id);
+
+let user = null;
+let direccion = 'S';
+let velocidad = 180;
+let enviando = false;
+let pendiente = false;
+let temporizador = null;
+
+function mensaje(texto) {
+  $('status').textContent = texto;
+}
+
+// Envia siempre el estado mas reciente.
+// Nunca descarta una orden de detener.
+async function enviar() {
+  pendiente = true;
+
+  if (enviando || !user) return;
+
+  enviando = true;
+
+  while (pendiente && user) {
+    pendiente = false;
+
+    const dir = direccion;
+    const vel = velocidad;
+
+    const { error } = await db
+      .from('auto_esp32_control')
+      .update({
+        direction: dir,
+        speed: vel
+      })
+      .eq('id', 1);
+
+    if (error) {
+      mensaje('Error de conexión: ' + error.message);
+      direccion = 'S';
+      pendiente = false;
+      break;
+    }
+
+    // Si cambio el comando durante el envio,
+    // enviamos inmediatamente el mas reciente.
+    if (dir !== direccion || vel !== velocidad) {
+      pendiente = true;
+    }
+  }
+
+  enviando = false;
+}
+
+function detener() {
+  direccion = 'S';
+  clearInterval(temporizador);
+  temporizador = null;
+  mensaje('DETENIDO');
+  enviar();
+}
+
+function mover(dir) {
+  clearInterval(temporizador);
+
+  direccion = dir;
+  mensaje('MOVIMIENTO: ' + dir);
+
+  enviar();
+
+  // Mantener viva la orden mientras
+  // el boton permanezca presionado.
+  temporizador = setInterval(() => {
+    enviar();
+  }, 200);
+}
+
+// Botones direccionales
+document.querySelectorAll('[data-dir]')
+.forEach(boton => {
+
+  boton.addEventListener('pointerdown', e => {
+    e.preventDefault();
+    boton.setPointerCapture(e.pointerId);
+    mover(boton.dataset.dir);
+  });
+
+  boton.addEventListener('pointerup', detener);
+  boton.addEventListener('pointercancel', detener);
+
+  boton.addEventListener('lostpointercapture', () => {
+    if (direccion !== 'S') detener();
+  });
+});
+
+$('stop').onclick = detener;
+
+$('speed').oninput = () => {
+  velocidad = Number($('speed').value);
+  $('speedLabel').textContent = velocidad;
+
+  if (direccion !== 'S') enviar();
+};
+
+async function iniciar() {
+  const { data: { user: usuario } } =
+    await db.auth.getUser();
+
+  user = usuario;
+
+  $('auth').style.display =
+    user ? 'none' : 'block';
+
+  $('panel').style.display =
+    user ? 'block' : 'none';
+
+  if (!user) {
+    mensaje('Inicia sesión');
+    return;
+  }
+
+  const { data, error } = await db
+    .from('auto_esp32_control')
+    .select('owner_id')
+    .eq('id', 1)
+    .maybeSingle();
+
+  if (error) {
+    mensaje(error.message);
+    return;
+  }
+
+  if (!data) {
+    const resultado = await db
+      .from('auto_esp32_control')
+      .insert({
+        id: 1,
+        owner_id: user.id,
+        direction: 'S',
+        speed: 180
+      });
+
+    if (resultado.error) {
+      mensaje(resultado.error.message);
+      return;
+    }
+  } else if (data.owner_id !== user.id) {
+    mensaje('Cuenta sin permiso para controlar');
+    $('panel').style.display = 'none';
+    return;
+  }
+
+  mensaje('CONECTADO');
+  detener();
+}
+
+$('signup').onclick = async () => {
+  const { error } = await db.auth.signUp({
+    email: $('email').value,
+    password: $('password').value
+  });
+
+  mensaje(error ? error.message :
+    'Registro enviado. Revisa tu correo.');
+};
+
+$('login').onclick = async () => {
+  const { error } = await db.auth
+    .signInWithPassword({
+      email: $('email').value,
+      password: $('password').value
+    });
+
+  if (error) mensaje(error.message);
+  else await iniciar();
+};
+
+$('logout').onclick = async () => {
+  detener();
+  await db.auth.signOut();
+  user = null;
+  await iniciar();
+};
+
+window.addEventListener('blur', detener);
+
+document.addEventListener(
+  'visibilitychange', () => {
+    if (document.hidden) detener();
+  }
+);
+
+await iniciar();
+</script>
+</body>
+</html>
